@@ -1,0 +1,270 @@
+function  BLACK(X)             { return "\033[30m"   X "\033[0m" }
+function  RED(X)               { return "\033[31m"   X "\033[0m" }
+function  GREEN(X)             { return "\033[32m"   X "\033[0m" }
+function  YELLOW(X)            { return "\033[33m"   X "\033[0m" }
+function  BLUE(X)              { return "\033[34m"   X "\033[0m" }
+function  MAGENTA(X)           { return "\033[35m"   X "\033[0m" }
+function  CYAN(X)              { return "\033[36m"   X "\033[0m" }
+function  WHITE(X)             { return "\033[37m"   X "\033[0m" }
+function  BRIGHT_BLACK(X)      { return "\033[90m"   X "\033[0m" }
+function  BRIGHT_RED(X)        { return "\033[91m"   X "\033[0m" }
+function  BRIGHT_GREEN(X)      { return "\033[92m"   X "\033[0m" }
+function  BRIGHT_YELLOW(X)     { return "\033[93m"   X "\033[0m" }
+function  BRIGHT_BLUE(X)       { return "\033[94m"   X "\033[0m" }
+function  BRIGHT_MAGENTA(X)    { return "\033[95m"   X "\033[0m" }
+function  BRIGHT_CYAN(X)       { return "\033[96m"   X "\033[0m" }
+function  BRIGHT_WHITE(X)      { return "\033[97m"   X "\033[0m" }
+function  BG_BLACK(X)          { return "\033[40m"   X "\033[0m" }
+function  BG_RED(X)            { return "\033[41m"   X "\033[0m" }
+function  BG_GREEN(X)          { return "\033[42m"   X "\033[0m" }
+function  BG_YELLOW(X)         { return "\033[43m"   X "\033[0m" }
+function  BG_BLUE(X)           { return "\033[44m"   X "\033[0m" }
+function  BG_MAGENTA(X)        { return "\033[45m"   X "\033[0m" }
+function  BG_CYAN(X)           { return "\033[46m"   X "\033[0m" }
+function  BG_WHITE(X)          { return "\033[47m"   X "\033[0m" }
+function  BG_BRIGHT_BLACK(X)   { return "\033[100m"  X "\033[0m" }
+function  BG_BRIGHT_RED(X)     { return "\033[101m"  X "\033[0m" }
+function  BG_BRIGHT_GREEN(X)   { return "\033[102m"  X "\033[0m" }
+function  BG_BRIGHT_YELLOW(X)  { return "\033[103m"  X "\033[0m" }
+function  BG_BRIGHT_BLUE(X)    { return "\033[104m"  X "\033[0m" }
+function  BG_BRIGHT_MAGENTA(X) { return "\033[105m"  X "\033[0m" }
+function  BG_BRIGHT_CYAN(X)    { return "\033[106m"  X "\033[0m" }
+function  BG_BRIGHT_WHITE(X)   { return "\033[107m"  X "\033[0m" }
+function  SKYBLUE(X)           { return "\033[38;2;40;177;249m" X "\033[0m" }
+function  BOLD(X)              { return "\033[1m" X "\033[0m" }
+function  DIM(X)               { return "\033[2m" X "\033[0m" }
+function  ITALIC(X)            { return "\033[3m" X "\033[0m" }
+function  UNDERLINE(X)         { return "\033[4m" X "\033[0m" }
+function  BLINK(X)             { return "\033[5m" X "\033[0m" }
+
+BEGIN {
+	#  $1 Book name
+	#  $2 Book abbreviation
+	#  $3 Book number
+	#  $4 Chapter number
+	#  $5 Verse number
+	#  $6 Verse
+	FS = "\t"
+
+    IGNORECASE=1
+
+	MAX_WIDTH = 80
+	if (ENVIRON["BIBLETERM_MAX_WIDTH"] ~ /^[0-9]+$/) {
+		if (int(ENVIRON["BIBLETERM_MAX_WIDTH"]) < MAX_WIDTH) {
+			MAX_WIDTH = int(ENVIRON["BIBLETERM_MAX_WIDTH"])
+		}
+	}
+
+	if (cmd == "ref") {
+		mode = parseref(ref, p)
+        p["book"] = cleanbook(p["book"])
+	}
+
+}
+
+cmd == "list" {
+	if (!($2 in seen_books)) {
+		printf("%s (%s)\n", $1, $2)
+		seen_books[$2] = 1
+	}
+}
+
+function ltrim(s) { sub(/^[ \t\r\n]+/, "", s); return s }
+function rtrim(s) { sub(/[ \t\r\n]+$/, "", s); return s }
+function trim(s)  { return rtrim(ltrim(s)); }
+
+function parseref(ref, arr) {
+	# 1. <book>
+	# 2. <book>:?<chapter>
+	# 3. <book>:?<chapter>:<verse>
+	# 3a. <book>:?<chapter>:<verse>[,<verse>]...
+	# 4. <book>:?<chapter>-<chapter>
+	# 5. <book>:?<chapter>:<verse>-<verse>
+	# 6. <book>:?<chapter>:<verse>-<chapter>:<verse>
+	# 7. /<search>
+	# 8. <book>/search
+	# 9. <book>:?<chapter>/search
+
+    if (match(ref, "^[1-9]?[A-Za-zĂÂÎȘȚăâîşţА-Яа-яЁё ]+")) {
+		# 1, 2, 3, 3a, 4, 5, 6, 8, 9
+		arr["book"] = substr(ref, 1, RLENGTH)
+		ref = substr(ref, RLENGTH + 1)
+	} else if (match(ref, "^/")) {
+		# 7
+		arr["search"] = substr(ref, 2)
+		return "search"
+	} else {
+		return "unknown"
+	}
+
+	if (match(ref, "^:?[1-9]+[0-9]*")) {
+		# 2, 3, 3a, 4, 5, 6, 9
+		if (sub("^:", "", ref)) {
+			arr["chapter"] = int(substr(ref, 1, RLENGTH - 1))
+			ref = substr(ref, RLENGTH)
+		} else {
+			arr["chapter"] = int(substr(ref, 1, RLENGTH))
+			ref = substr(ref, RLENGTH + 1)
+		}
+	} else if (match(ref, "^/")) {
+		# 8
+		arr["search"] = substr(ref, 2)
+		return "search"
+	} else if (ref == "") {
+		# 1
+		return "exact"
+	} else {
+		return "unknown"
+	}
+
+	if (match(ref, "^:[1-9]+[0-9]*")) {
+		# 3, 3a, 5, 6
+		arr["verse"] = int(substr(ref, 2, RLENGTH - 1))
+		ref = substr(ref, RLENGTH + 1)
+	} else if (match(ref, "^-[1-9]+[0-9]*$")) {
+		# 4
+		arr["chapter_end"] = int(substr(ref, 2))
+		return "range"
+	} else if (match(ref, "^/")) {
+		# 9
+		arr["search"] = substr(ref, 2)
+		return "search"
+	} else if (ref == "") {
+		# 2
+		return "exact"
+	} else {
+		return "unknown"
+	}
+
+	if (match(ref, "^-[1-9]+[0-9]*$")) {
+		# 5
+		arr["verse_end"] = int(substr(ref, 2))
+		return "range"
+	} else if (match(ref, "-[1-9]+[0-9]*")) {
+		# 6
+		arr["chapter_end"] = int(substr(ref, 2, RLENGTH - 1))
+		ref = substr(ref, RLENGTH + 1)
+	} else if (ref == "") {
+		# 3
+		return "exact"
+	} else if (match(ref, "^,[1-9]+[0-9]*")) {
+		# 3a
+		arr["verse", arr["verse"]] = 1
+		delete arr["verse"]
+		do {
+			arr["verse", substr(ref, 2, RLENGTH - 1)] = 1
+			ref = substr(ref, RLENGTH + 1)
+		} while (match(ref, "^,[1-9]+[0-9]*"))
+
+		if (ref != "") {
+			return "unknown"
+		}
+
+		return "exact_set"
+	} else {
+		return "unknown"
+	}
+
+	if (match(ref, "^:[1-9]+[0-9]*$")) {
+		# 6
+		arr["verse_end"] = int(substr(ref, 2))
+		return "range_ext"
+	} else {
+		return "unknown"
+	}
+}
+
+function cleanbook(book) {
+	book = tolower(book)
+	gsub(" +", "", book)
+	return book
+}
+
+function bookmatches(book, bookabbr, query) {
+	book = cleanbook(book)
+	if (book == query) {
+		return book
+	}
+
+	bookabbr = cleanbook(bookabbr)
+	if (bookabbr == query) {
+		return book
+	}
+
+	if (substr(book, 1, length(query)) == query) {
+		return book
+	}
+}
+
+function printverse(verse,    word_count, characters_printed) {
+	if (ENVIRON["RO_NOLINEWRAP"] != "" && ENVIRON["RO_NOLINEWRAP"] != "0") {
+		printf("%s\n\n", verse)
+		return
+	}
+
+	word_count = split(verse, words, " ")
+    formatted_verse = ""
+	for (i = 1; i <= word_count; i++) {
+		if (characters_printed + length(words[i]) + (characters_printed > 0 ? 1 : 0) > MAX_WIDTH - 8) {
+            formatted_verse = formatted_verse "\n\t"
+			characters_printed = 0
+		}
+		if (characters_printed > 0) {
+            formatted_verse = formatted_verse " "
+			characters_printed++
+		}
+
+        formatted_verse = formatted_verse words[i]
+		characters_printed += length(words[i])
+	}
+    formatted_verse = formatted_verse "\n\n"
+
+    if (match(formatted_verse, p["search"]))
+        value = substr(formatted_verse, RSTART, RLENGTH)
+        gsub(p["search"], BG_BRIGHT_YELLOW(BLACK(value)), formatted_verse)
+
+    printf(formatted_verse)
+}
+
+function processline() {
+	if (last_book_printed != $2) {
+		print "  " BOLD(UNDERLINE($1 "\n"))
+		last_book_printed = $2
+	}
+
+    if (!p["search"])
+        if (last_chapter_printed != $4)
+            print "  " BOLD(UNDERLINE("[" $1 " - " $4 "]\n"))
+            last_chapter_printed = $4
+
+
+    printf BOLD(YELLOW("  " $4 ":" $5)) "\t"
+	printverse($6)
+	outputted_records++
+}
+
+cmd == "ref" && mode == "exact" && bookmatches($1, $2, p["book"]) && (p["chapter"] == "" || $4 == p["chapter"]) && (p["verse"] == "" || $5 == p["verse"]) {
+	processline()
+}
+
+cmd == "ref" && mode == "exact_set" && bookmatches($1, $2, p["book"]) && (p["chapter"] == "" || $4 == p["chapter"]) && p["verse", $5] {
+	processline()
+}
+
+cmd == "ref" && mode == "range" && bookmatches($1, $2, p["book"]) && ((p["chapter_end"] == "" && $4 == p["chapter"]) || ($4 >= p["chapter"] && $4 <= p["chapter_end"])) && (p["verse"] == "" || $5 >= p["verse"]) && (p["verse_end"] == "" || $5 <= p["verse_end"]) {
+	processline()
+}
+
+cmd == "ref" && mode == "range_ext" && bookmatches($1, $2, p["book"]) && (($4 == p["chapter"] && $5 >= p["verse"] && p["chapter"] != p["chapter_end"]) || ($4 > p["chapter"] && $4 < p["chapter_end"]) || ($4 == p["chapter_end"] && $5 <= p["verse_end"] && p["chapter"] != p["chapter_end"]) || (p["chapter"] == p["chapter_end"] && $4 == p["chapter"] && $5 >= p["verse"] && $5 <= p["verse_end"])) {
+	processline()
+}
+
+cmd == "ref" && mode == "search" && (p["book"] == "" || bookmatches($1, $2, p["book"])) && (p["chapter"] == "" || $4 == p["chapter"]) && match(tolower($6), tolower(p["search"])) {
+	processline()
+}
+
+END {
+	if (cmd == "ref" && outputted_records == 0) {
+		print "Unknown Reference: " ref
+	}
+}
