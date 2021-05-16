@@ -1,10 +1,11 @@
 PREFIX = /usr/local
 
-bibleterm: bibleterm.sh bibleterm.awk bible-texts
+bibleterm: bibleterm.sh bibleterm.awk
 	cat bibleterm.sh > $@
 	echo 'exit 0' >> $@
 	echo '#EOF' >> $@
-	tar cz bibleterm.awk bible-texts >> $@
+	tar cz bibleterm.awk >> $@
+	# cat bibleterm.awk >> $@
 	chmod +x $@
 
 test: bibleterm.sh

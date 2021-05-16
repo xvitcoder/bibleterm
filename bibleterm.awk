@@ -59,7 +59,6 @@ BEGIN {
 		mode = parseref(ref, p)
         p["book"] = cleanbook(p["book"])
 	}
-
 }
 
 cmd == "list" {
@@ -196,71 +195,193 @@ function bookmatches(book, bookabbr, query) {
 	}
 }
 
-function printverse(verse,    word_count, characters_printed) {
-	if (ENVIRON["RO_NOLINEWRAP"] != "" && ENVIRON["RO_NOLINEWRAP"] != "0") {
-		printf("%s\n\n", verse)
+function printverse(verse, word_count, characters_printed) {
+	if (ENVIRON["BIBLETERM_NOLINEWRAP"] != "" && ENVIRON["BIBLETERM_NOLINEWRAP"] != "0") {
+        printf("%s\n\n", verse)
 		return
 	}
 
 	word_count = split(verse, words, " ")
     formatted_verse = ""
+    tags_to_reapply = ""
+
 	for (i = 1; i <= word_count; i++) {
-		if (characters_printed + length(words[i]) + (characters_printed > 0 ? 1 : 0) > MAX_WIDTH - 8) {
-            formatted_verse = formatted_verse "\n\t"
+        clean_word = words[i]
+
+        if (match(words[i], /<(\/)*(\w+)>/, group)) {
+            tagName = group[0]
+            if (group[1] != "") {
+                gsub("<" group[2] ">", "", tags_to_reapply)
+            } else {
+                tags_to_reapply = tags_to_reapply tagName
+            }
+
+            gsub(tagName, "", clean_word)
+        }
+
+		if (characters_printed + length(clean_word) + (characters_printed > 0 ? 1 : 0) > MAX_WIDTH - 8) {
+            formatted_verse = formatted_verse "\n\t" tags_to_reapply
 			characters_printed = 0
 		}
+
 		if (characters_printed > 0) {
             formatted_verse = formatted_verse " "
 			characters_printed++
 		}
 
         formatted_verse = formatted_verse words[i]
-		characters_printed += length(words[i])
+		characters_printed += length(clean_word)
 	}
     formatted_verse = formatted_verse "\n\n"
-
-    if (match(formatted_verse, p["search"]))
-        value = substr(formatted_verse, RSTART, RLENGTH)
-        gsub(p["search"], BG_BRIGHT_YELLOW(BLACK(value)), formatted_verse)
+    formatted_verse = highlightText(formatted_verse)
+    formatted_verse = highlightSearch(formatted_verse)
 
     printf(formatted_verse)
 }
 
+function highlightSearch(verse) {
+    if (p["search"] != "" && match(verse, p["search"])) {
+        value = substr(verse, RSTART, RLENGTH)
+        gsub(p["search"], "\033[7m" value "\033[27m", verse)
+    }
+
+    return verse
+}
+
+function highlightText(verse) {
+    # Text Bold
+    gsub(/<b>/, "\033[1m", verse)
+    gsub(/<\/b>/, "\033[22m", verse)
+
+    # Text Italic
+    gsub(/<i>/, "\033[3m", verse)
+    gsub(/<\/i>/, "\033[23m", verse)
+
+    # Text Underline
+    gsub(/<u>/, "\033[4m", verse)
+    gsub(/<\/u>/, "\033[24m", verse)
+
+    # Text Reverse
+    gsub(/<r>/, "\033[7m", verse)
+    gsub(/<\/r>/, "\033[27m", verse)
+
+    # Highlight Yellow
+    gsub(/<hy>/, "\033[103m\033[30m", verse)
+
+    # Highlight Red
+    gsub(/<hr>/, "\033[101m\033[30m", verse)
+
+    # Highlight Green
+    gsub(/<hg>/, "\033[102m\033[30m", verse)
+
+    # Highlight Blue
+    gsub(/<hb>/, "\033[104m\033[30m", verse)
+
+    # Highlight Magenta
+    gsub(/<hm>/, "\033[105m\033[30m", verse)
+
+    # Highlight Cyan
+    gsub(/<hc>/, "\033[106m\033[30m", verse)
+
+    # Highlight Cyan
+    gsub(/<hw>/, "\033[107m\033[30m", verse)
+
+
+
+    # Text Black
+    # gsub(/<tb>/, "\033[90m", verse)
+
+    # Text Red
+    gsub(/<tr>/, "\033[91m", verse)
+
+    # Text Green
+    gsub(/<tg>/, "\033[92m", verse)
+
+    # Text Yellow
+    gsub(/<ty>/, "\033[93m", verse)
+
+    # Text Blue
+    gsub(/<tb>/, "\033[94m", verse)
+
+    # Text Magenta
+    gsub(/<tm>/, "\033[95m", verse)
+
+    # Text Cyan
+    gsub(/<tc>/, "\033[96m", verse)
+
+    # Text SkyBlue
+    gsub(/<ts>/, "\033[38;2;40;177;249m", verse)
+
+    # Text White
+    gsub(/<tw>/, "\033[97m", verse)
+
+
+    # Reset colors
+    gsub(/<reset>/, "\033[0m", verse)
+
+    return verse "\033[0m"
+}
+
 function processline() {
 	if (last_book_printed != $2) {
-		print "  " BOLD(UNDERLINE($1 "\n"))
+		print "  " BRIGHT_BLUE(BOLD(UNDERLINE($1 "\n")))
 		last_book_printed = $2
 	}
 
     if (!p["search"])
         if (last_chapter_printed != $4)
-            print "  " BOLD(UNDERLINE("[" $1 " - " $4 "]\n"))
+            print "  " BRIGHT_BLUE(BOLD(UNDERLINE("[" $1 " - " $4 "]\n")))
             last_chapter_printed = $4
 
 
     printf BOLD(YELLOW("  " $4 ":" $5)) "\t"
-	printverse($6)
+    printverse($6)
 	outputted_records++
 }
 
-cmd == "ref" && mode == "exact" && bookmatches($1, $2, p["book"]) && (p["chapter"] == "" || $4 == p["chapter"]) && (p["verse"] == "" || $5 == p["verse"]) {
+cmd == "ref" && 
+    mode == "exact" && 
+    bookmatches($1, $2, p["book"]) && 
+    (p["chapter"] == "" || $4 == p["chapter"]) && 
+    (p["verse"] == "" || $5 == p["verse"]) {
+
 	processline()
 }
 
-cmd == "ref" && mode == "exact_set" && bookmatches($1, $2, p["book"]) && (p["chapter"] == "" || $4 == p["chapter"]) && p["verse", $5] {
+cmd == "ref" && 
+    mode == "exact_set" && 
+    bookmatches($1, $2, p["book"]) && 
+    (p["chapter"] == "" || $4 == p["chapter"]) && 
+    p["verse", $5] {
+        
 	processline()
 }
 
-cmd == "ref" && mode == "range" && bookmatches($1, $2, p["book"]) && ((p["chapter_end"] == "" && $4 == p["chapter"]) || ($4 >= p["chapter"] && $4 <= p["chapter_end"])) && (p["verse"] == "" || $5 >= p["verse"]) && (p["verse_end"] == "" || $5 <= p["verse_end"]) {
+cmd == "ref" && 
+    mode == "range" && 
+    bookmatches($1, $2, p["book"]) && 
+    ((p["chapter_end"] == "" && $4 == p["chapter"]) || ($4 >= p["chapter"] && $4 <= p["chapter_end"])) && 
+    (p["verse"] == "" || $5 >= p["verse"]) && 
+    (p["verse_end"] == "" || $5 <= p["verse_end"]) {
 	processline()
 }
 
-cmd == "ref" && mode == "range_ext" && bookmatches($1, $2, p["book"]) && (($4 == p["chapter"] && $5 >= p["verse"] && p["chapter"] != p["chapter_end"]) || ($4 > p["chapter"] && $4 < p["chapter_end"]) || ($4 == p["chapter_end"] && $5 <= p["verse_end"] && p["chapter"] != p["chapter_end"]) || (p["chapter"] == p["chapter_end"] && $4 == p["chapter"] && $5 >= p["verse"] && $5 <= p["verse_end"])) {
+cmd == "ref" && 
+    mode == "range_ext" && 
+    bookmatches($1, $2, p["book"]) && 
+    (($4 == p["chapter"] && $5 >= p["verse"] && p["chapter"] != p["chapter_end"]) || 
+        ($4 > p["chapter"] && $4 < p["chapter_end"]) || 
+        ($4 == p["chapter_end"] && $5 <= p["verse_end"] && p["chapter"] != p["chapter_end"]) || 
+        (p["chapter"] == p["chapter_end"] && $4 == p["chapter"] && $5 >= p["verse"] && $5 <= p["verse_end"])) {
 	processline()
 }
 
-cmd == "ref" && mode == "search" && (p["book"] == "" || bookmatches($1, $2, p["book"])) && (p["chapter"] == "" || $4 == p["chapter"]) && match(tolower($6), tolower(p["search"])) {
-	processline()
+cmd == "ref" &&
+    mode == "search" &&
+    (p["book"] == "" || bookmatches($1, $2, p["book"])) &&
+    (p["chapter"] == "" || $4 == p["chapter"]) &&
+    match(tolower($6), tolower(p["search"])) {
+    processline()
 }
 
 END {
