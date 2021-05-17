@@ -8,8 +8,8 @@ BIBLE_TEXT_PATH=$HOME/.bible-texts
 PAGER="less --tilde -I -R"
 
 # Colors for less search
-export LESS_TERMCAP_so=$(echo -e '\033[103m\033[30m')
-export LESS_TERMCAP_se=$(echo -e '\e[0m')
+# export LESS_TERMCAP_so=$(echo -e '\033[103m\033[30m')
+# export LESS_TERMCAP_se=$(echo -e '\e[0m')
 
 get_data() {
 	sed '1,/^#EOF$/d' < "$SELF" | tar xz -O "$1"

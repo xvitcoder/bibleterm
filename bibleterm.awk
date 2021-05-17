@@ -31,10 +31,10 @@ function  BG_BRIGHT_MAGENTA(X) { return "\033[105m"  X "\033[0m" }
 function  BG_BRIGHT_CYAN(X)    { return "\033[106m"  X "\033[0m" }
 function  BG_BRIGHT_WHITE(X)   { return "\033[107m"  X "\033[0m" }
 function  SKYBLUE(X)           { return "\033[38;2;40;177;249m" X "\033[0m" }
-function  BOLD(X)              { return "\033[1m" X "\033[0m" }
+function  BOLD(X)              { return "\033[1m" X "\033[22m" }
 function  DIM(X)               { return "\033[2m" X "\033[0m" }
-function  ITALIC(X)            { return "\033[3m" X "\033[0m" }
-function  UNDERLINE(X)         { return "\033[4m" X "\033[0m" }
+function  ITALIC(X)            { return "\033[3m" X "\033[23m" }
+function  UNDERLINE(X)         { return "\033[4m" X "\033[24m" }
 function  BLINK(X)             { return "\033[5m" X "\033[0m" }
 
 BEGIN {
@@ -47,6 +47,8 @@ BEGIN {
 	FS = "\t"
 
     IGNORECASE=1
+
+    SPACING="         "
 
 	MAX_WIDTH = 80
 	if (ENVIRON["BIBLETERM_MAX_WIDTH"] ~ /^[0-9]+$/) {
@@ -88,9 +90,15 @@ function parseref(ref, arr) {
 		# 1, 2, 3, 3a, 4, 5, 6, 8, 9
 		arr["book"] = substr(ref, 1, RLENGTH)
 		ref = substr(ref, RLENGTH + 1)
+	} else if (match(ref, "^//")) {
+		# 7
+		arr["search"] = substr(ref, 3)
+		arr["is_exact_search"] = 1
+		return "search"
 	} else if (match(ref, "^/")) {
 		# 7
 		arr["search"] = substr(ref, 2)
+        arr["is_exact_search"] = 0
 		return "search"
 	} else {
 		return "unknown"
@@ -105,9 +113,15 @@ function parseref(ref, arr) {
 			arr["chapter"] = int(substr(ref, 1, RLENGTH))
 			ref = substr(ref, RLENGTH + 1)
 		}
+	} else if (match(ref, "^//")) {
+		# 8
+		arr["search"] = substr(ref, 3)
+        arr["is_exact_search"] = 1
+		return "search"
 	} else if (match(ref, "^/")) {
 		# 8
 		arr["search"] = substr(ref, 2)
+        arr["is_exact_search"] = 0
 		return "search"
 	} else if (ref == "") {
 		# 1
@@ -124,9 +138,15 @@ function parseref(ref, arr) {
 		# 4
 		arr["chapter_end"] = int(substr(ref, 2))
 		return "range"
+	} else if (match(ref, "^//")) {
+		# 9
+		arr["search"] = substr(ref, 3)
+        arr["is_exact_search"] = 1
+		return "search"
 	} else if (match(ref, "^/")) {
 		# 9
 		arr["search"] = substr(ref, 2)
+        arr["is_exact_search"] = 0
 		return "search"
 	} else if (ref == "") {
 		# 2
@@ -220,7 +240,7 @@ function printverse(verse, word_count, characters_printed) {
         }
 
 		if (characters_printed + length(clean_word) + (characters_printed > 0 ? 1 : 0) > MAX_WIDTH - 8) {
-            formatted_verse = formatted_verse "\n\t" tags_to_reapply
+            formatted_verse = sprintf("%s\n%s%s", formatted_verse, SPACING, tags_to_reapply)
 			characters_printed = 0
 		}
 
@@ -235,17 +255,39 @@ function printverse(verse, word_count, characters_printed) {
     formatted_verse = formatted_verse "\n\n"
     formatted_verse = highlightText(formatted_verse)
     formatted_verse = highlightSearch(formatted_verse)
+    formatted_verse = highlightStrongNumbers(formatted_verse)
 
     printf(formatted_verse)
 }
 
 function highlightSearch(verse) {
-    if (p["search"] != "" && match(verse, p["search"])) {
-        value = substr(verse, RSTART, RLENGTH)
-        gsub(p["search"], "\033[7m" value "\033[27m", verse)
+    if (p["is_exact_search"] ) {
+        verse = highlightPart(p["search"], verse)
+    } else {
+        if (match(p["search"], " ")) {
+            split(p["search"], search_parts, " ")
+            for (i in search_parts) {
+                verse = highlightPart(search_parts[i], verse)
+            }
+        } else {
+            verse = highlightPart(p["search"], verse)
+        }
     }
 
     return verse
+}
+
+function highlightPart(search, verse) {
+    if (search != "" && match(verse, search)) {
+        value = substr(verse, RSTART, RLENGTH)
+        gsub(search, "\033[7m" value "\033[27m", verse)
+    }
+
+    return verse
+}
+
+function highlightStrongNumbers(verse) {
+    return gensub(/{\(*(H[0-9]+)\)*}/, "\033[2m\033[3m\\1\033[0m", "g", verse)
 }
 
 function highlightText(verse) {
@@ -333,10 +375,28 @@ function processline() {
             print "  " BRIGHT_BLUE(BOLD(UNDERLINE("[" $1 " - " $4 "]\n")))
             last_chapter_printed = $4
 
+    verseNumber = $4 ":" $5
 
-    printf BOLD(YELLOW("  " $4 ":" $5)) "\t"
+    printf("%.*s%s ", 8 - length(verseNumber), SPACING, BOLD(YELLOW(verseNumber)))
     printverse($6)
 	outputted_records++
+}
+
+function searchText(text) {
+    if (p["search"] == "") {
+        return text
+    }
+
+    if (p["is_exact_search"]) {
+        searchResult = match(tolower(text), tolower(p["search"]))
+    } else {
+        term = tolower(p["search"])
+        gsub(" ", ".*", term)
+        term = "(\\s|^)" term
+        searchResult = match(tolower(text), term)
+    }
+
+    return searchResult;
 }
 
 cmd == "ref" && 
@@ -380,7 +440,7 @@ cmd == "ref" &&
     mode == "search" &&
     (p["book"] == "" || bookmatches($1, $2, p["book"])) &&
     (p["chapter"] == "" || $4 == p["chapter"]) &&
-    match(tolower($6), tolower(p["search"])) {
+    searchText($6) {
     processline()
 }
 
