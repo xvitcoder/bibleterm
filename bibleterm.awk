@@ -86,22 +86,22 @@ function parseref(ref, arr) {
 	# 8. <book>/search
 	# 9. <book>:?<chapter>/search
 
+    # TODO: Implement the following
+	# 4. <book>:?<chapter>-<chapter>/search
+	# 3a. <book>:?<chapter>:<verse>[,<verse>].../search
+	# 5. <book>:?<chapter>:<verse>-<verse>
+	# 6. <book>:?<chapter>:<verse>-<chapter>:<verse>/search
+
     if (match(ref, "^[1-9]?[A-Za-zĂÂÎȘȚăâîşţА-Яа-яЁё ]+")) {
 		# 1, 2, 3, 3a, 4, 5, 6, 8, 9
 		arr["book"] = substr(ref, 1, RLENGTH)
 		ref = substr(ref, RLENGTH + 1)
-	} else if (match(ref, "^//")) {
-		# 7
-		arr["search"] = substr(ref, 3)
-		arr["is_exact_search"] = 1
-		return "search"
 	} else if (match(ref, "^/")) {
 		# 7
 		arr["search"] = substr(ref, 2)
-        arr["is_exact_search"] = 0
 		return "search"
 	} else {
-		return "unknown"
+        return "unknown"
 	}
 
 	if (match(ref, "^:?[1-9]+[0-9]*")) {
@@ -113,21 +113,15 @@ function parseref(ref, arr) {
 			arr["chapter"] = int(substr(ref, 1, RLENGTH))
 			ref = substr(ref, RLENGTH + 1)
 		}
-	} else if (match(ref, "^//")) {
-		# 8
-		arr["search"] = substr(ref, 3)
-        arr["is_exact_search"] = 1
-		return "search"
 	} else if (match(ref, "^/")) {
 		# 8
 		arr["search"] = substr(ref, 2)
-        arr["is_exact_search"] = 0
 		return "search"
 	} else if (ref == "") {
 		# 1
 		return "exact"
 	} else {
-		return "unknown"
+        return "unknown"
 	}
 
 	if (match(ref, "^:[1-9]+[0-9]*")) {
@@ -138,21 +132,15 @@ function parseref(ref, arr) {
 		# 4
 		arr["chapter_end"] = int(substr(ref, 2))
 		return "range"
-	} else if (match(ref, "^//")) {
-		# 9
-		arr["search"] = substr(ref, 3)
-        arr["is_exact_search"] = 1
-		return "search"
 	} else if (match(ref, "^/")) {
 		# 9
 		arr["search"] = substr(ref, 2)
-        arr["is_exact_search"] = 0
 		return "search"
 	} else if (ref == "") {
 		# 2
 		return "exact"
 	} else {
-		return "unknown"
+        return "unknown"
 	}
 
 	if (match(ref, "^-[1-9]+[0-9]*$")) {
@@ -181,7 +169,7 @@ function parseref(ref, arr) {
 
 		return "exact_set"
 	} else {
-		return "unknown"
+        return "unknown"
 	}
 
 	if (match(ref, "^:[1-9]+[0-9]*$")) {
@@ -189,7 +177,7 @@ function parseref(ref, arr) {
 		arr["verse_end"] = int(substr(ref, 2))
 		return "range_ext"
 	} else {
-		return "unknown"
+        return "unknown"
 	}
 }
 
@@ -220,6 +208,33 @@ function printverse(verse, word_count, characters_printed) {
         printf("%s\n\n", verse)
 		return
 	}
+
+
+    comments = ""
+    links = ""
+    refs = ""
+
+	verse_parts_count = split(verse, verse_parts, "#")
+
+    if (verse_parts_count == 2) {
+        verse = verse_parts[1]
+
+        # Extract references
+        if (match(verse_parts[2], /\((.*)\)/, parts)) {
+            refs = parts[1]
+        }
+
+        # Extract links
+        if (match(verse_parts[2], /\[(.*)\]/, parts)) {
+            links = parts[1]
+        }
+
+        # Extract comments
+        if (match(verse_parts[2], /\{(.*)\}/, parts)) {
+            comments = parts[1]
+        }
+    }
+
 
 	word_count = split(verse, words, " ")
     formatted_verse = ""
@@ -252,26 +267,34 @@ function printverse(verse, word_count, characters_printed) {
         formatted_verse = formatted_verse words[i]
 		characters_printed += length(clean_word)
 	}
-    formatted_verse = formatted_verse "\n\n"
     formatted_verse = highlightText(formatted_verse)
     formatted_verse = highlightSearch(formatted_verse)
     formatted_verse = highlightStrongNumbers(formatted_verse)
+    formatted_verse = highlightReferences(formatted_verse)
+
+    if (refs != "") {
+        formatted_verse = formatted_verse "\n" SPACING "\033[90m " refs "\033[0m"
+    }
+    if (links != "") {
+        formatted_verse = formatted_verse "\n" SPACING "\033[90m " links "\033[0m"
+    }
+    if (comments != "") {
+        formatted_verse = formatted_verse "\n" SPACING "\033[90m  " comments "\033[0m"
+    }
+
+    formatted_verse = formatted_verse "\n\n"
 
     printf(formatted_verse)
 }
 
 function highlightSearch(verse) {
-    if (p["is_exact_search"] ) {
-        verse = highlightPart(p["search"], verse)
-    } else {
-        if (match(p["search"], " ")) {
-            split(p["search"], search_parts, " ")
-            for (i in search_parts) {
-                verse = highlightPart(search_parts[i], verse)
-            }
-        } else {
-            verse = highlightPart(p["search"], verse)
+    if (match(p["search"], " ")) {
+        split(p["search"], search_parts, " ")
+        for (i in search_parts) {
+            verse = highlightPart(search_parts[i], verse)
         }
+    } else {
+        verse = highlightPart(p["search"], verse)
     }
 
     return verse
@@ -288,6 +311,20 @@ function highlightPart(search, verse) {
 
 function highlightStrongNumbers(verse) {
     return gensub(/{\(*(H[0-9]+)\)*}/, "\033[2m\033[3m\\1\033[0m", "g", verse)
+}
+
+function highlightReferences(verse) {
+    color = "\033[90m\\1\033[0m"
+    verse = gensub(/(①)/, color, "g", verse)
+    verse = gensub(/(②)/, color, "g", verse)
+    verse = gensub(/(③)/, color, "g", verse)
+    verse = gensub(/(④)/, color, "g", verse)
+    verse = gensub(/(⑤)/, color, "g", verse)
+    verse = gensub(/(⑥)/, color, "g", verse)
+    verse = gensub(/(⑦)/, color, "g", verse)
+    verse = gensub(/(⑧)/, color, "g", verse)
+    verse = gensub(/(⑨)/, color, "g", verse)
+    return gensub(/(⑩)/, color, "g", verse)
 }
 
 function highlightText(verse) {
@@ -387,16 +424,33 @@ function searchText(text) {
         return text
     }
 
-    if (p["is_exact_search"]) {
-        searchResult = match(tolower(text), tolower(p["search"]))
-    } else {
-        term = tolower(p["search"])
-        gsub(" ", ".*", term)
-        term = "(\\s|^)" term
-        searchResult = match(tolower(text), term)
+    return match(tolower(text), generateSearchTermRegex(p["search"]))
+}
+
+function generateSearchTermRegex(term) {
+    term = tolower(p["search"])
+
+    if (term == "") {
+        return term
     }
 
-    return searchResult;
+    if (substr(term, length(term),1) == "*") {
+        term = substr(term, 0, length(term) - 1) "([a-zA-Z]*)"
+    } else {
+        term = term "\\s"
+    }
+    # gsub("*", "([a-zA-Z]*|\\s)", term)
+    gsub("*", "(.*|\\s*)", term)
+    # gsub(" ", "\\s", term)
+    # gsub(" ", "", term)
+    term = "(\\s|^)" term
+    # print term
+
+    # term = tolower(p["search"])
+    # gsub(" ", ".*\\s", term)
+    # term = "(\\s|^)" term
+
+    return term
 }
 
 cmd == "ref" && 
