@@ -48,14 +48,8 @@ BEGIN {
 
     IGNORECASE=1
 
-    SPACING="         "
-
-	MAX_WIDTH = 80
-	if (ENVIRON["BIBLETERM_MAX_WIDTH"] ~ /^[0-9]+$/) {
-		if (int(ENVIRON["BIBLETERM_MAX_WIDTH"]) < MAX_WIDTH) {
-			MAX_WIDTH = int(ENVIRON["BIBLETERM_MAX_WIDTH"])
-		}
-	}
+    # less = "export LESS='-PsSometext'"
+    # system(less)
 
 	if (cmd == "ref") {
 		mode = parseref(ref, p)
@@ -204,12 +198,6 @@ function bookmatches(book, bookabbr, query) {
 }
 
 function printverse(verse, word_count, characters_printed) {
-	if (ENVIRON["BIBLETERM_NOLINEWRAP"] != "" && ENVIRON["BIBLETERM_NOLINEWRAP"] != "0") {
-        printf("%s\n\n", verse)
-		return
-	}
-
-
     comments = ""
     links = ""
     refs = ""
@@ -238,35 +226,14 @@ function printverse(verse, word_count, characters_printed) {
 
 	word_count = split(verse, words, " ")
     formatted_verse = ""
-    tags_to_reapply = ""
 
 	for (i = 1; i <= word_count; i++) {
         clean_word = words[i]
 
-        if (match(words[i], /<(\/)*(\w+)>/, group)) {
-            tagName = group[0]
-            if (group[1] != "") {
-                gsub("<" group[2] ">", "", tags_to_reapply)
-            } else {
-                tags_to_reapply = tags_to_reapply tagName
-            }
-
-            gsub(tagName, "", clean_word)
-        }
-
-		if (characters_printed + length(clean_word) + (characters_printed > 0 ? 1 : 0) > MAX_WIDTH - 8) {
-            formatted_verse = sprintf("%s\n%s%s", formatted_verse, SPACING, tags_to_reapply)
-			characters_printed = 0
-		}
-
-		if (characters_printed > 0) {
-            formatted_verse = formatted_verse " "
-			characters_printed++
-		}
-
-        formatted_verse = formatted_verse words[i]
+        formatted_verse = formatted_verse " " words[i]
 		characters_printed += length(clean_word)
 	}
+
     formatted_verse = highlightText(formatted_verse)
     formatted_verse = highlightSearch(formatted_verse)
     formatted_verse = highlightStrongNumbers(formatted_verse)
@@ -288,22 +255,9 @@ function printverse(verse, word_count, characters_printed) {
 }
 
 function highlightSearch(verse) {
-    if (match(p["search"], " ")) {
-        split(p["search"], search_parts, " ")
-        for (i in search_parts) {
-            verse = highlightPart(search_parts[i], verse)
-        }
-    } else {
-        verse = highlightPart(p["search"], verse)
-    }
-
-    return verse
-}
-
-function highlightPart(search, verse) {
-    if (search != "" && match(verse, search)) {
+    if (p["search"] != "" && match(verse, p["search"])) {
         value = substr(verse, RSTART, RLENGTH)
-        gsub(search, "\033[7m" value "\033[27m", verse)
+        gsub(p["search"], "\033[7m" value "\033[27m", verse)
     }
 
     return verse
@@ -403,18 +357,18 @@ function highlightText(verse) {
 
 function processline() {
 	if (last_book_printed != $2) {
-		print "  " BRIGHT_BLUE(BOLD(UNDERLINE($1 "\n")))
+		print BLUE(BOLD(UNDERLINE($1 "\n")))
 		last_book_printed = $2
 	}
 
     if (!p["search"])
         if (last_chapter_printed != $4)
-            print "  " BRIGHT_BLUE(BOLD(UNDERLINE("[" $1 " - " $4 "]\n")))
+            print BLUE(BOLD(UNDERLINE("[" $1 " - " $4 "]\n")))
             last_chapter_printed = $4
 
     verseNumber = $4 ":" $5
 
-    printf("%.*s%s ", 8 - length(verseNumber), SPACING, BOLD(YELLOW(verseNumber)))
+    printf(BOLD(YELLOW(verseNumber)))
     printverse($6)
 	outputted_records++
 }
@@ -424,33 +378,10 @@ function searchText(text) {
         return text
     }
 
-    return match(tolower(text), generateSearchTermRegex(p["search"]))
-}
+    result = match(tolower(text), p["search"], sres)
 
-function generateSearchTermRegex(term) {
-    term = tolower(p["search"])
 
-    if (term == "") {
-        return term
-    }
-
-    if (substr(term, length(term),1) == "*") {
-        term = substr(term, 0, length(term) - 1) "([a-zA-Z]*)"
-    } else {
-        term = term "\\s"
-    }
-    # gsub("*", "([a-zA-Z]*|\\s)", term)
-    gsub("*", "(.*|\\s*)", term)
-    # gsub(" ", "\\s", term)
-    # gsub(" ", "", term)
-    term = "(\\s|^)" term
-    # print term
-
-    # term = tolower(p["search"])
-    # gsub(" ", ".*\\s", term)
-    # term = "(\\s|^)" term
-
-    return term
+    return result
 }
 
 cmd == "ref" && 

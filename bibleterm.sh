@@ -4,8 +4,9 @@
 
 SELF="$0"
 BIBLE="$1"
+BIBLE_TITLE=
 BIBLE_TEXT_PATH=$HOME/.bible-texts
-PAGER="less --tilde -I -R"
+PAGER="less --tilde -j 10 -# 4 -C -I -R --incsearch"
 # PAGER="most"
 # PAGER="view"
 # PAGER="nvim -R +AnsiEsc -c 'set nonumber; set norelativenumber'"
@@ -15,13 +16,68 @@ PAGER="less --tilde -I -R"
 # Colors for less search
 # export LESS_TERMCAP_so=$(echo -e '\033[103m\033[30m')
 # export LESS_TERMCAP_se=$(echo -e '\e[0m')
+export LESS_TERMCAP_mb=$'\E[1;31m'     # begin bold
+export LESS_TERMCAP_md=$'\E[1;36m'     # begin blink
+export LESS_TERMCAP_me=$'\E[0m'        # reset bold/blink
+export LESS_TERMCAP_so=$'\E[01;44;33m' # begin reverse video
+export LESS_TERMCAP_se=$'\E[0m'        # reset reverse video
+export LESS_TERMCAP_us=$'\E[1;32m'     # begin underline
+export LESS_TERMCAP_ue=$'\E[0m'        # reset underline
 
 get_data() {
 	sed '1,/^#EOF$/d' < "$SELF" | tar xz -O "$1"
 }
 
-# LESS='-Pslines %lt-%lb (%Pt-%Pb \%) bytes %bt-%bb'
-# export LESS
+update_less_prompt() {
+    BIBLE_TITLE=""
+
+    case $BIBLE in
+      de-lut)
+        BIBLE_TITLE="Deutsch Luther"
+        ;;
+      en-asv)
+        BIBLE_TITLE="American Standard Version"
+        ;;
+      en-kjv)
+        BIBLE_TITLE="King James Version"
+        ;;
+      en-kjv-strong)
+        BIBLE_TITLE="King James Version - Strong"
+        ;;
+      en-tyn)
+        BIBLE_TITLE="Tyndale"
+        ;;
+      en-gen)
+        BIBLE_TITLE="GEN"
+        ;;
+      en-esv)
+        BIBLE_TITLE="English Standard Version"
+        ;;
+      gr)
+        BIBLE_TITLE="Greek"
+        ;;
+      gr-tr)
+        BIBLE_TITLE="Greek"
+        ;;
+      gr-tr-strong)
+        BIBLE_TITLE="Greek - Strong"
+        ;;
+      hb-wlc)
+        BIBLE_TITLE="Hebrew - Westminster Leningrad Codex"
+        ;;
+      ro-cor)
+        BIBLE_TITLE="Cornilescu"
+        ;;
+      ro-fid)
+        BIBLE_TITLE="Fidela"
+        ;;
+      ru-sin)
+        BIBLE_TITLE="Синодальный"
+        ;;
+    esac
+
+    LESS="-Ps$BIBLE_TITLE"
+}
 
 show_help() {
 	exec >&2
@@ -94,9 +150,6 @@ while [ $# -gt 0 ]; do
             fi
         done
 		exit
-	elif [ "$2" = "-W" ]; then
-		export BIBLETERM_NOLINEWRAP=1
-		shift
 	elif [ "$2" = "-p" ]; then
         BIBLE_TEXT_PATH=$3
         break
@@ -107,11 +160,6 @@ while [ $# -gt 0 ]; do
 	fi
 done
 
-cols=$(tput cols 2>/dev/null)
-if [ $? -eq 0 ]; then
-	export BIBLETERM_MAX_WIDTH="$cols"
-fi
-
 if [ $# -eq 1 ]; then
 	if [ ! -t 0 ]; then
 		show_help
@@ -119,22 +167,22 @@ if [ $# -eq 1 ]; then
 
 	# Interactive mode
 	while true; do
-        read -e -p " 🕮  [${BIBLE^^}]  " ref
+        read -r -e -p " 🕮  [${BIBLE^^}]  " ref
         if [[ -z $ref ]]; then
             continue
         fi
-        if [[ $ref == \q ]]; then
+        if [[ $ref == "\q" ]]; then
             exit 0
         fi
-        if [[ $ref == \h ]]; then
+        if [[ $ref == "\h" ]]; then
             show_commands
             continue
         fi
-        if [[ $ref == \b ]]; then
+        if [[ $ref == "\b" ]]; then
             cat "$BIBLE_TEXT_PATH/$1.tsv" | awk -v cmd=list "$(cat bibleterm.awk)"
             continue
         fi
-        if [[ $ref == \v ]]; then
+        if [[ $ref == "\v" ]]; then
             echo "Available Bible Versions: "
             for file in $BIBLE_TEXT_PATH/*
             do
@@ -149,15 +197,13 @@ if [ $# -eq 1 ]; then
             history -s "$ref"
             continue
         fi
-        # if [[ $ref == @* ]]; then
-        #     BIBLE=`ls bible-texts | sed -e 's/\.tsv$//' | fzf --height 40% --layout=reverse`
-        #     continue
-        # fi
         history -s "$ref"
 
-		cat "$BIBLE_TEXT_PATH/$BIBLE.tsv" | awk -v cmd=ref -v ref="$ref" "$(get_data bibleterm.awk)" | ${PAGER}
+        update_less_prompt
+		cat "$BIBLE_TEXT_PATH/$BIBLE.tsv" | awk -v cmd=ref -v bibleTitle=$BIBLE_TITLE -v ref="$ref" "$(get_data bibleterm.awk)" | ${PAGER}
 	done
 	exit 0
 fi
 
-cat "$BIBLE_TEXT_PATH/$BIBLE.tsv" | awk -v cmd=ref -v ref="${@:2}" "$(get_data bibleterm.awk)" | ${PAGER}
+update_less_prompt
+cat "$BIBLE_TEXT_PATH/$BIBLE.tsv" | awk -v cmd=ref -v bibleTitle=$BIBLE_TITLE -v ref="${@:2}" "$(get_data bibleterm.awk)" | ${PAGER}
