@@ -254,6 +254,16 @@ function printverse(verse, word_count, characters_printed) {
     printf(formatted_verse)
 }
 
+function searchText(text) {
+    if (p["search"] == "") {
+        return text
+    }
+
+    result = match(tolower(text), "\\s" p["search"], sres)
+
+    return result
+}
+
 function highlightSearch(verse) {
     if (p["search"] != "" && match(verse, p["search"])) {
         value = substr(verse, RSTART, RLENGTH)
@@ -373,16 +383,6 @@ function processline() {
 	outputted_records++
 }
 
-function searchText(text) {
-    if (p["search"] == "") {
-        return text
-    }
-
-    result = match(tolower(text), p["search"], sres)
-
-
-    return result
-}
 
 cmd == "ref" && 
     mode == "exact" && 
