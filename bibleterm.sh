@@ -4,7 +4,7 @@
 
 SELF="$0"
 BIBLE="$1"
-BIBLE_TEXT_PATH=$HOME/.bible-texts
+BIBLE_TEXT_PATH=$HOME/documents/Church/bible-texts
 PAGER="less --tilde -I -R"
 # PAGER="most"
 # PAGER="view"
