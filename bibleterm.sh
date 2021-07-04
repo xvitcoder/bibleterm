@@ -4,6 +4,8 @@
 
 SELF="$0"
 BIBLE="$1"
+SHOW_COLORS=1
+SHOW_REFS=1
 BIBLE_TITLE=
 BIBLE_TEXT_PATH=$HOME/documents/Church/bible-texts
 # PAGER="less --tilde -I -R"
@@ -120,6 +122,9 @@ show_commands() {
 	echo "Commands:"
 	echo "    \b - Show the list of Bible books"
 	echo "    \v - Show available Bible versions"
+	echo "    \c - Toggle colors"
+	echo "    \r - Toggle references"
+	echo "    \a - Toggle all"
 	echo "    \h - Show this help"
 	echo "    \q - Quit"
 	echo
@@ -193,6 +198,31 @@ if [ $# -eq 1 ]; then
             done
             continue
         fi
+        if [[ $ref == "\c" ]]; then
+            [[ $SHOW_COLORS == 1 ]] && SHOW_COLORS=0 || SHOW_COLORS=1
+            [[ $SHOW_COLORS == 1 ]] && echo "Colors: SHOWN" || echo "Colors: HIDDEN"
+            history -s "$ref"
+            continue
+        fi
+        if [[ $ref == "\r" ]]; then
+            [[ $SHOW_REFS == 1 ]] && SHOW_REFS=0 || SHOW_REFS=1
+            [[ $SHOW_REFS == 1 ]] && echo "References: SHOWN" || echo "References: HIDDEN"
+            history -s "$ref"
+            continue
+        fi
+        if [[ $ref == "\a" ]]; then
+            if [[ $SHOW_COLORS == 1 ]]; then 
+                SHOW_COLORS=0
+                SHOW_REFS=0
+            else
+                SHOW_COLORS=1
+                SHOW_REFS=1
+            fi
+            [[ $SHOW_COLORS == 1 ]] && echo "Colors: SHOWN" || echo "Colors: HIDDEN"
+            [[ $SHOW_REFS == 1 ]] && echo "References: SHOWN" || echo "References: HIDDEN"
+            history -s "$ref"
+            continue
+        fi
         if [[ $ref == @* ]]; then
             BIBLE=${ref:1}
             history -s "$ref"
@@ -201,10 +231,10 @@ if [ $# -eq 1 ]; then
         history -s "$ref"
 
         update_less_prompt
-		cat "$BIBLE_TEXT_PATH/$BIBLE.tsv" | awk -v cmd=ref -v bibleTitle=$BIBLE_TITLE -v ref="$ref" "$(get_data bibleterm.awk)" | ${PAGER}
+		cat "$BIBLE_TEXT_PATH/$BIBLE.tsv" | awk -v cmd=ref -v bibleTitle=$BIBLE_TITLE -v showColors=$SHOW_COLORS -v showRefs=$SHOW_REFS -v ref="$ref" "$(get_data bibleterm.awk)" | ${PAGER}
 	done
 	exit 0
 fi
 
 update_less_prompt
-cat "$BIBLE_TEXT_PATH/$BIBLE.tsv" | awk -v cmd=ref -v bibleTitle=$BIBLE_TITLE -v ref="${@:2}" "$(get_data bibleterm.awk)" | ${PAGER}
+cat "$BIBLE_TEXT_PATH/$BIBLE.tsv" | awk -v cmd=ref -v bibleTitle=$BIBLE_TITLE -v showColors=$SHOW_COLORS -v showRefs=$SHOW_REFS -v ref="${@:2}" "$(get_data bibleterm.awk)" | ${PAGER}

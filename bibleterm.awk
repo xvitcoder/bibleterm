@@ -202,6 +202,10 @@ function printverse(verse, word_count, characters_printed) {
     links = ""
     refs = ""
 
+    if (showRefs) {
+        verse = formatReferenceText(verse)
+    }
+
 	verse_parts_count = split(verse, verse_parts, "#")
 
     if (verse_parts_count == 2) {
@@ -234,20 +238,33 @@ function printverse(verse, word_count, characters_printed) {
 		characters_printed += length(clean_word)
 	}
 
-    formatted_verse = highlightText(formatted_verse)
+    if (showColors) {
+        formatted_verse = highlightText(formatted_verse)
+    } else {
+        formatted_verse = removeHighlightTags(formatted_verse)
+    }
+
     formatted_verse = highlightSearch(formatted_verse)
     formatted_verse = highlightStrongNumbers(formatted_verse)
-    formatted_verse = highlightReferences(formatted_verse)
 
-    if (refs != "") {
-        formatted_verse = formatted_verse "\n" SPACING "\033[90m " refs "\033[0m"
+    if (showRefs) {
+        formatted_verse = highlightReferences(formatted_verse)
+
+        if (refs != "") {
+            formatted_verse = formatted_verse "\n" SPACING "\033[90m " refs "\033[0m"
+        }
+
+        if (links != "") {
+            formatted_verse = formatted_verse "\n" SPACING "\033[90m " links "\033[0m"
+        }
+
+        if (comments != "") {
+            formatted_verse = formatted_verse "\n" SPACING "\033[90m  " comments "\033[0m"
+        }
+    } else {
+        formatted_verse = removeReferenceText(formatted_verse)
     }
-    if (links != "") {
-        formatted_verse = formatted_verse "\n" SPACING "\033[90m " links "\033[0m"
-    }
-    if (comments != "") {
-        formatted_verse = formatted_verse "\n" SPACING "\033[90m  " comments "\033[0m"
-    }
+
 
     formatted_verse = formatted_verse "\n\n"
 
@@ -277,18 +294,41 @@ function highlightStrongNumbers(verse) {
     return gensub(/{\(*(H[0-9]+)\)*}/, "\033[2m\033[3m\\1\033[0m", "g", verse)
 }
 
+function removeReferenceText(verse) {
+    return gensub(/\([0-9]*\)/, "", "g", verse)
+}
+
+function removeHighlightTags(verse) {
+    return gensub(/<[\/]*[a-z]+>/, "", "g", verse)
+}
+
+function formatReferenceText(verse) {
+    verse = gensub(/\(1\)/, "①", "g", verse)
+    verse = gensub(/\(2\)/, "②", "g", verse)
+    verse = gensub(/\(3\)/, "③", "g", verse)
+    verse = gensub(/\(4\)/, "④", "g", verse)
+    verse = gensub(/\(5\)/, "⑤", "g", verse)
+    verse = gensub(/\(6\)/, "⑥", "g", verse)
+    verse = gensub(/\(7\)/, "⑦", "g", verse)
+    verse = gensub(/\(8\)/, "⑧", "g", verse)
+    verse = gensub(/\(9\)/, "⑨", "g", verse)
+    verse = gensub(/\(10\)/, "⑩", "g", verse)
+    return verse
+}
+
 function highlightReferences(verse) {
-    color = "\033[90m\\1\033[0m"
-    verse = gensub(/(①)/, color, "g", verse)
-    verse = gensub(/(②)/, color, "g", verse)
-    verse = gensub(/(③)/, color, "g", verse)
-    verse = gensub(/(④)/, color, "g", verse)
-    verse = gensub(/(⑤)/, color, "g", verse)
-    verse = gensub(/(⑥)/, color, "g", verse)
-    verse = gensub(/(⑦)/, color, "g", verse)
-    verse = gensub(/(⑧)/, color, "g", verse)
-    verse = gensub(/(⑨)/, color, "g", verse)
-    return gensub(/(⑩)/, color, "g", verse)
+    # color = "\033[90m\\1\033[0m"
+    # verse = gensub(/(①)/, color, "g", verse)
+    # verse = gensub(/(②)/, color, "g", verse)
+    # verse = gensub(/(③)/, color, "g", verse)
+    # verse = gensub(/(④)/, color, "g", verse)
+    # verse = gensub(/(⑤)/, color, "g", verse)
+    # verse = gensub(/(⑥)/, color, "g", verse)
+    # verse = gensub(/(⑦)/, color, "g", verse)
+    # verse = gensub(/(⑧)/, color, "g", verse)
+    # verse = gensub(/(⑨)/, color, "g", verse)
+    # verse = gensub(/(⑩)/, color, "g", verse)
+    return verse
 }
 
 function highlightText(verse) {
@@ -326,13 +366,11 @@ function highlightText(verse) {
     # Highlight Cyan
     gsub(/<hc>/, "\033[106m\033[30m", verse)
 
-    # Highlight Cyan
+    # Highlight White
     gsub(/<hw>/, "\033[107m\033[30m", verse)
 
-
-
     # Text Black
-    # gsub(/<tb>/, "\033[90m", verse)
+    gsub(/<tb>/, "\033[90m", verse)
 
     # Text Red
     gsub(/<tr>/, "\033[91m", verse)
