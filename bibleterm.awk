@@ -276,7 +276,7 @@ function searchText(text) {
         return text
     }
 
-    result = match(tolower(text), "\\s" p["search"], sres)
+    result = match(tolower(text), "(^|\\s)" p["search"], sres)
 
     return result
 }
