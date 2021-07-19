@@ -79,7 +79,24 @@ update_less_prompt() {
         ;;
     esac
 
-    LESS="-Ps$BIBLE_TITLE"
+    input=$ref
+    search=""
+
+    [[ $input =~ "/" ]] && search=" /$(cut -d/ -f2 <<<$input)"
+    [[ $input =~ "/" ]] && input=$(cut -d/ -f1 <<<$input)
+
+    abbrev=$1
+    [[ $1 == ?(-)+([0-9]) ]] && abbrev="$1 $2"
+
+    [[ $abbrev =~ ":" ]] && abbrev=$(cut -d: -f1 <<<$abbrev)
+    [[ $abbrev =~ "/" ]] && abbrev=$(cut -d/ -f1 <<<$abbrev)
+
+    book=$(cat "$BIBLE_TEXT_PATH/$BIBLE.tsv" | awk -v cmd=books "$(get_data bibleterm.awk)" | grep -i -m1 "^$abbrev")
+
+    REF=${input/$abbrev/$book}
+    REF=${REF//:/\\:}
+    # LESS="-Ps $BIBLE_TEXT_PATH/$BIBLE\.tsv"
+    LESS="-Ps $BIBLE_TITLE ($REF)$search"
 }
 
 show_help() {
@@ -185,7 +202,7 @@ if [ $# -eq 1 ]; then
             continue
         fi
         if [[ $ref == "\b" ]]; then
-            cat "$BIBLE_TEXT_PATH/$1.tsv" | awk -v cmd=list "$(cat bibleterm.awk)"
+            cat "$BIBLE_TEXT_PATH/$1.tsv" | awk -v cmd=list "$(get_data bibleterm.awk)"
             continue
         fi
         if [[ $ref == "\v" ]]; then
@@ -230,11 +247,11 @@ if [ $# -eq 1 ]; then
         fi
         history -s "$ref"
 
-        update_less_prompt
-		cat "$BIBLE_TEXT_PATH/$BIBLE.tsv" | awk -v cmd=ref -v bibleTitle=$BIBLE_TITLE -v showColors=$SHOW_COLORS -v showRefs=$SHOW_REFS -v ref="$ref" "$(get_data bibleterm.awk)" | ${PAGER}
+        update_less_prompt $ref
+        cat "$BIBLE_TEXT_PATH/$BIBLE.tsv" | awk -v cmd=ref -v bibleTitle=$BIBLE_TITLE -v showColors=$SHOW_COLORS -v showRefs=$SHOW_REFS -v ref="$ref" "$(get_data bibleterm.awk)" | ${PAGER}
 	done
 	exit 0
 fi
 
-update_less_prompt
+update_less_prompt $ref
 cat "$BIBLE_TEXT_PATH/$BIBLE.tsv" | awk -v cmd=ref -v bibleTitle=$BIBLE_TITLE -v showColors=$SHOW_COLORS -v showRefs=$SHOW_REFS -v ref="${@:2}" "$(get_data bibleterm.awk)" | ${PAGER}

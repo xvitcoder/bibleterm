@@ -64,6 +64,13 @@ cmd == "list" {
 	}
 }
 
+cmd == "books" {
+	if (!($2 in seen_books)) {
+		printf("%s\n", $1)
+		seen_books[$2] = 1
+	}
+}
+
 function ltrim(s) { sub(/^[ \t\r\n]+/, "", s); return s }
 function rtrim(s) { sub(/[ \t\r\n]+$/, "", s); return s }
 function trim(s)  { return rtrim(ltrim(s)); }
