@@ -90,7 +90,6 @@ function parseref(ref, arr) {
     # TODO: Implement the following
 	# 4. <book>:?<chapter>-<chapter>/search
 	# 3a. <book>:?<chapter>:<verse>[,<verse>].../search
-	# 5. <book>:?<chapter>:<verse>-<verse>
 	# 6. <book>:?<chapter>:<verse>-<chapter>:<verse>/search
 
     if (match(ref, "^[1-9]?[A-Za-zĂÂÎȘȚăâîşţА-Яа-яЁё ]+")) {
@@ -241,7 +240,11 @@ function printverse(verse, word_count, characters_printed) {
 	for (i = 1; i <= word_count; i++) {
         clean_word = words[i]
 
-        formatted_verse = formatted_verse " " words[i]
+        if (formatted_verse == "") {
+            formatted_verse = words[i]
+        } else {
+            formatted_verse = formatted_verse " " words[i]
+        }
 		characters_printed += length(clean_word)
 	}
 
@@ -266,7 +269,7 @@ function printverse(verse, word_count, characters_printed) {
         }
 
         if (comments != "") {
-            formatted_verse = formatted_verse "\n" SPACING "\033[90m  " comments "\033[0m"
+            formatted_verse = formatted_verse "\n" SPACING "\033[90m " comments "\033[0m"
         }
     } else {
         formatted_verse = removeReferenceText(formatted_verse)
@@ -421,7 +424,7 @@ function processline() {
             print BLUE(BOLD(UNDERLINE("[" $1 " - " $4 "]\n")))
             last_chapter_printed = $4
 
-    verseNumber = $4 ":" $5
+    verseNumber = $2 " " $4 ":" $5 "\n"
 
     printf(BOLD(YELLOW(verseNumber)))
     printverse($6)
